@@ -168,7 +168,7 @@ class SearchAddr extends Model
             $result['list'][$key]['title'] = $value['name'];
             $result['list'][$key]['category'] = $value['type'];
             $result['list'][$key]['address'] = $value['address'];
-            $result['list'][$key]['tel'] = $value['tel'];
+            $result['list'][$key]['tel'] = !empty($value['tel']) ? $value['tel'] : '';
             $result['list'][$key]['ad_info']['province'] = $value['pname'];
             $result['list'][$key]['ad_info']['city'] = $value['cityname'];
             $result['list'][$key]['ad_info']['district'] = $value['adname'];
@@ -189,15 +189,15 @@ class SearchAddr extends Model
             case 'driving':
                 $pts_result = $this->getDriving($request, $post);
                 break;
-//            //步行
-//            case 'walking':
-//                $pts_result = $this->getWalking($request, $post);
-//                break;
-//            //自行车
-//            case 'bicycling':
-//                $pts_result = $this->getBicycling($request, $post);
-//                break;
-//            //公交车
+            //步行
+            case 'walking':
+                $pts_result = $this->getWalking($request, $post);
+                break;
+            //自行车
+            case 'bicycling':
+                $pts_result = $this->getBicycling($request, $post);
+                break;
+            //公交车
 //            case 'transit':
 //                $pts_result = $this->getTransit($request, $post);
 //                break;
@@ -205,9 +205,6 @@ class SearchAddr extends Model
                 jsonCrypt(501);
                 break;
         }
-
-        //组合商圈经纬
-        $pts_data['to'] = '';
 
         if(empty($pts_result)) {
             return $result;
@@ -246,6 +243,7 @@ class SearchAddr extends Model
                 $result['list'][$key]['count_duration'] += $va[$key]['duration'];
             }
         }
+
         if($place_save_data) {
             $place_save_data = array_values($place_save_data);
             //数据存储
@@ -318,14 +316,99 @@ class SearchAddr extends Model
     {
         $data = [];
         $query = [];
+        $result = [];
         foreach ($post['driving']['destination'] as $key => $value) {
             $data[$key]['destination'] = $value;
             $data[$key]['origins'] = $post['driving']['origins'];
             $data[$key]['type'] = $post['driving']['type'];
             $query[$key] = $request->distance($data[$key]);
-            $query[$key] = $query[$key]['results'];
+            $result[$key] = $query[$key]['results'];
         }
 
-        return $query;
+        return $result;
+    }
+
+    /**
+     * User: this
+     * Date: 2021/4/12
+     * Time: 17:37
+     * 获取步行耗时
+     */
+    public function getWalking($request, $post)
+    {
+        $data = [];
+        $query = [];
+        $result = [];
+        foreach ($post['walking']['destination'] as $key => $value) {
+            foreach ($post['walking']['origins'] as $k => $v) {
+                $data[$key][$k]['origin'] = $v;
+                $data[$key][$k]['destination'] = $value;
+                $query[$key][$k] = $request->walking($data[$key][$k]);
+                $result[$key][$k]['distance'] = !empty($query[$key][$k]['route']['paths'][0]['distance']) ?  $query[$key][$k]['route']['paths'][0]['distance'] : 100000;
+                $result[$key][$k]['duration'] = !empty($query[$key][$k]['route']['paths'][0]['duration']) ?  $query[$key][$k]['route']['paths'][0]['duration'] : 100000;
+
+            }
+        }
+        return $result;
+    }
+
+    /**
+     * User: this
+     * Date: 2021/4/12
+     * Time: 17:56
+     * 获取骑行耗时
+     */
+    public function getBicycling($request, $post)
+    {
+        $data = [];
+        $query = [];
+        $result = [];
+        foreach ($post['walking']['destination'] as $key => $value) {
+            foreach ($post['walking']['origins'] as $k => $v) {
+                $data[$key][$k]['origin'] = $v;
+                $data[$key][$k]['destination'] = $value;
+                $query[$key][$k] = $request->bicycling($data[$key][$k]);
+                $result[$key][$k]['distance'] = !empty($query[$key][$k]['data']['paths'][0]['distance']) ?  $query[$key][$k]['data']['paths'][0]['distance'] : 100000;
+                $result[$key][$k]['duration'] = !empty($query[$key][$k]['data']['paths'][0]['duration']) ?  $query[$key][$k]['data']['paths'][0]['duration'] : 100000;
+
+            }
+        }
+        return $result;
+    }
+
+    /**
+     * User: this
+     * Date: 2021/4/12
+     * Time: 18:05
+     * 获取公交耗时
+     */
+    public function getTransit($request, $post)
+    {
+        $data = [];
+        $query = [];
+        $result = [];
+        foreach ($post['walking']['destination'] as $key => $value) {
+            foreach ($post['walking']['origins'] as $k => $v) {
+                $data[$key][$k]['origin'] = $v;
+                $data[$key][$k]['destination'] = $value;
+                $data[$key][$k]['nightflag'] = 1;
+                $query[$key][$k] = $request->integrated($data[$key][$k]);
+                echo '<pre>';
+                var_dump($query[$key][$k]);exit;
+                $result[$key][$k]['distance'] = !empty($query[$key][$k]['route']['distance']) ?  $query[$key][$k]['route']['distance'] : 100000;
+
+                $result[$key][$k]['duration'] = 0;
+                if(!empty($query[$key][$k]['route']['duration'])) {
+                    foreach ($query[$key][$k]['route']['duration'] as $ke => $va) {
+                        $result[$key][$k]['duration'] += $va['duration'];
+                    }
+                } else {
+                    $result[$key][$k]['duration'] = 100000;
+                }
+
+
+            }
+        }
+        return $result;
     }
 }

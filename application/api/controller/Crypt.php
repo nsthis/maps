@@ -28,6 +28,7 @@ class Crypt extends Controller
             'user_lng' => '117.120311',
             'user_addr_name' => '测试地址',
             'search_rang' => '3000',
+            'mode' => 'transit',
             'list' => [
                 [
                     'search_lng' => '117.109489',

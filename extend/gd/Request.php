@@ -36,13 +36,30 @@ class Request
         return $this->request($data, '/v3/distance');
     }
 
+    //步行测距
+    public function walking($data)
+    {
+        return $this->request($data, '/v3/direction/walking');
+    }
+
+    //骑行测距
+    public function bicycling($data)
+    {
+        return $this->request($data, '/v4/direction/bicycling', 2);
+    }
+
+    //公交耗时
+    public function integrated($data)
+    {
+        return $this->request($data, '/v3/direction/transit/integrated');
+    }
     /**
      * User: This
      * Date: 2020/4/27
      * Time: 15:05
      * 网络请求
      */
-    function request($data, $url_path)
+    function request($data, $url_path, $request_type = 1)
     {
 
         //调用接口所需数据
@@ -74,8 +91,19 @@ class Request
             return false;
         }
 
-        if ($result['msg']['infocode'] != 10000) {
-            return false;
+        //识别请求类型
+        switch ($request_type)
+        {
+            case 2:
+                if (empty($result['msg']['data'])) {
+                    return false;
+                }
+                break;
+            default:
+                if (empty($result['msg']['infocode']) || ($result['msg']['infocode'] != 10000)) {
+                    return false;
+                }
+                break;
         }
 
         //返回结果
