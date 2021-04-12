@@ -13,7 +13,7 @@ use think\Validate,
     app\api\model\v1_0_0\Conf as ConfModel,
     app\api\controller\ApiCommon;
 
-class SearchAddr extends ApiCommon
+class Conf extends ApiCommon
 {
     /**
      * User: this

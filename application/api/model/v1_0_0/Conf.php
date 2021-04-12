@@ -34,6 +34,7 @@ class Conf extends Model
                 $result[$value['key']] = $value['value'];
             }
         }
+
         return $result;
     }
 }

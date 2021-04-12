@@ -14,7 +14,8 @@ use think\Model,
     think\Db,
     elliot\LngLat,
     elliot\Sort,
-    tx\Request,
+    gd\Request,
+//    tx\Request,
     app\api\model\v1_0_0\Place;
 
 class SearchAddr extends Model
@@ -42,6 +43,30 @@ class SearchAddr extends Model
         //定义场所数组
         $place_info = [];
 
+        //定义驾车测距查询数据
+        $post['driving'] = [];
+        $post['driving']['origins'] = '';
+        $post['driving']['destination'] = [];
+        $post['driving']['type'] = 1;
+        $post['driving']['destination'][0] = $post['post_data']['user_lng'] . ',' . $post['post_data']['user_lat'];
+
+
+        //定义步行测距查询数据
+        $post['walking'] = [];
+        $post['walking']['origin'] = [];
+        $post['walking']['destination'] = [];
+        $post['walking']['destination'][0] = $post['driving']['destination'][0];
+
+        //定义骑行测距查询数据
+        $post['bicycling']['origin'] = [];
+        $post['bicycling']['destination'] = [];
+        $post['bicycling']['destination'][0] = $post['driving']['destination'][0];
+
+        //定义公交路径规划
+        $post['transit']['origin'] = [];
+        $post['transit']['destination'] = [];
+        $post['transit']['destination'][0] = $post['driving']['destination'][0];
+
         //检测是否传入商圈交通工具
         if(empty($post['post_data']['mode'])) {
             $post['post_data']['mode'] = 'driving';
@@ -64,8 +89,15 @@ class SearchAddr extends Model
             $lng_lat[$key][0] = $value['search_lat'];
             $lng_lat[$key][1] = $value['search_lng'];
 
+            //组合出行数据目的地数据
+            $post['driving']['destination'][$key + 1] = $value['search_lng'] . ',' . $value['search_lat'];
+            $post['walking']['destination'][$key + 1] = $value['search_lng'] . ',' . $value['search_lat'];
+            $post['bicycling']['destination'][$key + 1] = $value['search_lng'] . ',' . $value['search_lat'];
+            $post['transit']['destination'][$key + 1] = $value['search_lng'] . ',' . $value['search_lat'];
+
+            //组合朋友地址数据
             $user_sadr_data[$key +1]['app_user_id'] = $post['user_info']['app_user_id'];
-            $user_sadr_data[$key +1]['lng'] = $value['addr_name'];
+            $user_sadr_data[$key +1]['lng'] = $value['search_lng'];
             $user_sadr_data[$key +1]['lat'] = $value['search_lat'];
             $user_sadr_data[$key +1]['addr_name'] = $value['addr_name'];
             $user_sadr_data[$key +1]['type'] = 2;
@@ -81,7 +113,7 @@ class SearchAddr extends Model
         };
 
         //将用户检索地址存储
-//        Db::name('user_sadr')->insertAll($user_sadr_data);
+        Db::name('user_sadr')->insertAll($user_sadr_data);
 
         //组合获取中心点数据
         $lng_lat_count = count($lng_lat);
@@ -91,51 +123,72 @@ class SearchAddr extends Model
         //获取中心点坐标
         $lng_lat_result = LngLat::GetCenterFromDegrees($lng_lat);
 
-        if(!$lng_lat_result) {
-            jsonCrypt(500);
-        }
 
         //检测是否传入商圈范围
         if(empty($post['post_data']['search_rang'])) {
-            $post['post_data']['search_rang'] = 3000;
+            $post['post_data']['search_rang'] = 30000;
         }
 
-        //获取中心点周边列表
-        $center_data['keyword'] = urlencode('购物');
-        $boundary = "{$lng_lat_result['lat']},{$lng_lat_result['lng']},{$post['post_data']['search_rang']}";
-        $center_data['boundary'] = "nearby($boundary)";
-        $center_data['filter'] = "category=" . urlencode('购物中心');
-        $center_data['orderby'] = "_distance";
+        //实例化Request
         $request = new Request();
 
+        //获取中心点周边列表
+//        $center_data['keyword'] = urlencode('购物');
+//        $boundary = "{$lng_lat_result['lat']},{$lng_lat_result['lng']},{$post['post_data']['search_rang']}";
+//        $center_data['boundary'] = "nearby($boundary)";
+//        $center_data['filter'] = "category=" . urlencode('购物中心');
+//        $center_data['orderby'] = "_distance";
+
+        $center_data['location'] = "{$lng_lat_result['lng']},{$lng_lat_result['lat']}";
+        $center_data['keywords'] = '购物广场';
+        $center_data['types'] = '060101';
+        $center_data['radius'] = $post['post_data']['search_rang'];
+        $center_data['sortrule'] = 'distance';
+
+        //发起请求
         $center_result = $request->centerSearch($center_data);
 
-        if(empty($center_result['data'])) {
+        //检测是否查询到商圈列表
+        if(empty($center_result['count']) < 0) {
             return $result;
         }
 
-        $post['post_data']['driving_to'] = '';
-        //获取矩阵对应to的经纬
-        foreach ($center_result['data'] as $key => $value) {
-            $post['post_data']['driving_to'] .= ';' . $value['location']['lat'] . ',' . $value['location']['lng'];
-            $center_result['data'][$key]['count_distance'] = 0;
-            $center_result['data'][$key]['count_duration'] = 0;
-        }
-        $post['post_data']['driving_to'] = trim($post['post_data']['driving_to'], ';');
+        //组合测距请求数据及反悔数据
+        foreach ($center_result['pois'] as $key => $value) {
 
-        $data['mode'] = 'driving';
-        $data['from'] = $post['post_data']['user_lat'] . ',' . $post['post_data']['user_lng'];
-        $data['to'] = $post['post_data']['driving_to'];
-        $pts_result = $request->parameters($data);
-//sleep(2);
-//        $pts_result = $this->getDriving($request, $post);
-//        //识别出行方式
-//        switch ($post['post_data']['mode'])
-//        {
-//            //驾车
-//            case 'driving':
-//                $pts_result = $this->getDriving($request, $post);
-//                break;
+            $value['location'] = explode(',', $value['location']);
+            //组合出发地数据
+            $post['driving']['origins'] .= '|' . $value['location'][0] . ',' . $value['location'][1];
+            $post['walking']['origins'][$key] = $value['location'][0] . ',' . $value['location'][1];
+            $post['bicycling']['origins'][$key] = $value['location'][0] . ',' . $value['location'][1];
+            $post['transit']['origins'][$key] = $value['location'][0] . ',' . $value['location'][1];
+
+            //组合返回数组
+            $result['list'][$key]['id'] = $value['id'];
+            $result['list'][$key]['title'] = $value['name'];
+            $result['list'][$key]['category'] = $value['type'];
+            $result['list'][$key]['address'] = $value['address'];
+            $result['list'][$key]['tel'] = $value['tel'];
+            $result['list'][$key]['ad_info']['province'] = $value['pname'];
+            $result['list'][$key]['ad_info']['city'] = $value['cityname'];
+            $result['list'][$key]['ad_info']['district'] = $value['adname'];
+            $result['list'][$key]['location']['lng'] = $value['location'][0];
+            $result['list'][$key]['location']['lat'] = $value['location'][1];
+            $result['list'][$key]['count_distance'] = 0;
+            $result['list'][$key]['count_duration'] = 0;
+            $result['list'][$key]['dd_info'] = '';
+        }
+
+        $post['driving']['origins'] = trim($post['driving']['origins'], '|');
+
+
+        //识别出行方式
+        switch ($post['post_data']['mode'])
+        {
+            //驾车
+            case 'driving':
+                $pts_result = $this->getDriving($request, $post);
+                break;
 //            //步行
 //            case 'walking':
 //                $pts_result = $this->getWalking($request, $post);
@@ -148,18 +201,17 @@ class SearchAddr extends Model
 //            case 'transit':
 //                $pts_result = $this->getTransit($request, $post);
 //                break;
-//            default:
-//                jsonCrypt(501);
-//                break;
-//        }
+            default:
+                jsonCrypt(501);
+                break;
+        }
+
         //组合商圈经纬
         $pts_data['to'] = '';
 
-        if(empty($pts_result['result']['rows'])) {
+        if(empty($pts_result)) {
             return $result;
         }
-
-        $result['list'] = $center_result['data'];
 
         //实例化Place
         $place = new Place();
@@ -176,25 +228,22 @@ class SearchAddr extends Model
                 $place_save_data[$key]['name'] = $value['title'];
                 $place_save_data[$key]['address'] = $value['address'];
                 $place_save_data[$key]['tel'] = $value['tel'];
-                $place_save_data[$key]['type'] = $value['type'];
                 $place_save_data[$key]['province'] = $value['ad_info']['province'];
                 $place_save_data[$key]['city'] = $value['ad_info']['city'];
                 $place_save_data[$key]['district'] = $value['ad_info']['district'];
-                $place_save_data[$key]['adcode'] = $value['ad_info']['adcode'];
                 $place_save_data[$key]['created_at'] = $time;
             }
 
             $result['list'][$key]['dd_info'] = '';
 
-            foreach ($pts_result['result']['rows'] as $ke => $va) {
+            foreach ($pts_result as $ke => $va) {
                 if($ke == 0) {
-                    $result['list'][$key]['dd_info'] = '距离你 ' . $this->checkKm($va['elements'][$key]['distance']) . ',约 ' . $this->checkTime($va['elements'][$key]['duration']);
+                    $result['list'][$key]['dd_info'] = '距离你 ' . $this->checkKm($va[$key]['distance']) . ',约 ' . $this->checkTime($va[$key]['duration']);
                 } else {
-                    $result['list'][$key]['dd_info'] .= ';距离你朋友 ' . $this->checkKm($va['elements'][$key]['distance']) . ',约 ' . $this->checkTime($va['elements'][$key]['duration']);
+                    $result['list'][$key]['dd_info'] .= ';距离你朋友 ' . $this->checkKm($va[$key]['distance']) . ',约 ' . $this->checkTime($va[$key]['duration']);
                 }
-                $result['list'][$key]['count_distance'] += $va['elements'][$key]['distance'];
-                $result['list'][$key]['count_duration'] += $va['elements'][$key]['duration'];
-
+                $result['list'][$key]['count_distance'] += $va[$key]['distance'];
+                $result['list'][$key]['count_duration'] += $va[$key]['duration'];
             }
         }
         if($place_save_data) {
@@ -267,11 +316,16 @@ class SearchAddr extends Model
      */
     private function getDriving($request, $post)
     {
-        $request = new Request();
-        $data['mode'] = 'driving';
-        $data['from'] = $post['post_data']['user_lat'] . ',' . $post['post_data']['user_lng'];
-        $data['to'] = $post['post_data']['driving_to'];
-        //获取矩阵排列接口
-        return $request->parameters($data);
+        $data = [];
+        $query = [];
+        foreach ($post['driving']['destination'] as $key => $value) {
+            $data[$key]['destination'] = $value;
+            $data[$key]['origins'] = $post['driving']['origins'];
+            $data[$key]['type'] = $post['driving']['type'];
+            $query[$key] = $request->distance($data[$key]);
+            $query[$key] = $query[$key]['results'];
+        }
+
+        return $query;
     }
 }
