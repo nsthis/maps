@@ -53,6 +53,12 @@ class Request
     {
         return $this->request($data, '/v3/direction/transit/integrated');
     }
+
+    //逆地理编码
+    public function regeo($data)
+    {
+        return $this->request($data, '/v3/geocode/regeo');
+    }
     /**
      * User: This
      * Date: 2020/4/27

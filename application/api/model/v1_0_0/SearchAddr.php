@@ -65,7 +65,7 @@ class SearchAddr extends Model
         //定义公交路径规划
         $post['transit']['origin'] = [];
         $post['transit']['destination'] = [];
-        $post['transit']['destination'][0] = $post['driving']['destination'][0];
+        $post['transit']['destination'][0]['destination'] = $post['driving']['destination'][0];
 
         //检测是否传入商圈交通工具
         if(empty($post['post_data']['mode'])) {
@@ -93,7 +93,7 @@ class SearchAddr extends Model
             $post['driving']['destination'][$key + 1] = $value['search_lng'] . ',' . $value['search_lat'];
             $post['walking']['destination'][$key + 1] = $value['search_lng'] . ',' . $value['search_lat'];
             $post['bicycling']['destination'][$key + 1] = $value['search_lng'] . ',' . $value['search_lat'];
-            $post['transit']['destination'][$key + 1] = $value['search_lng'] . ',' . $value['search_lat'];
+            $post['transit']['destination'][$key + 1]['destination'] = $value['search_lng'] . ',' . $value['search_lat'];
 
             //组合朋友地址数据
             $user_sadr_data[$key +1]['app_user_id'] = $post['user_info']['app_user_id'];
@@ -161,7 +161,8 @@ class SearchAddr extends Model
             $post['driving']['origins'] .= '|' . $value['location'][0] . ',' . $value['location'][1];
             $post['walking']['origins'][$key] = $value['location'][0] . ',' . $value['location'][1];
             $post['bicycling']['origins'][$key] = $value['location'][0] . ',' . $value['location'][1];
-            $post['transit']['origins'][$key] = $value['location'][0] . ',' . $value['location'][1];
+            $post['transit']['origins'][$key]['origins'] = $value['location'][0] . ',' . $value['location'][1];
+            $post['transit']['origins'][$key]['city'] = $value['cityname'];
 
             //组合返回数组
             $result['list'][$key]['id'] = $value['id'];
@@ -198,9 +199,9 @@ class SearchAddr extends Model
                 $pts_result = $this->getBicycling($request, $post);
                 break;
             //公交车
-//            case 'transit':
-//                $pts_result = $this->getTransit($request, $post);
-//                break;
+            case 'transit':
+                $pts_result = $this->getTransit($request, $post);
+                break;
             default:
                 jsonCrypt(501);
                 break;
@@ -256,7 +257,7 @@ class SearchAddr extends Model
         if(empty($post['post_data']['order_type'])) {
             $post['post_data']['order_type'] = 'count_duration';
         }
-
+        
         //排序
         $result['list'] = $sort->arraySort($result['list'], $post['post_data']['order_type'], 'asc');
 
@@ -384,28 +385,36 @@ class SearchAddr extends Model
      */
     public function getTransit($request, $post)
     {
+        //实例化Sort
+        $sort = new Sort();
+
         $data = [];
         $query = [];
         $result = [];
-        foreach ($post['walking']['destination'] as $key => $value) {
-            foreach ($post['walking']['origins'] as $k => $v) {
-                $data[$key][$k]['origin'] = $v;
-                $data[$key][$k]['destination'] = $value;
+        foreach ($post['transit']['destination'] as $key => $value) {
+            //获取当前逆地理位置
+            $value['city'] = $request->regeo([
+               'location' => $value['destination']
+            ]);
+            foreach ($post['transit']['origins'] as $k => $v) {
+                $data[$key][$k]['origin'] = $v['origins'];
+                $data[$key][$k]['destination'] = $value['destination'];
                 $data[$key][$k]['nightflag'] = 1;
+                $data[$key][$k]['city'] = $v['city'];
+                if(!empty($value['city']['regeocode']['addressComponent']['city'])) {
+                    $data[$key][$k]['cityd'] = $value['city']['regeocode']['addressComponent']['city'];
+                }
                 $query[$key][$k] = $request->integrated($data[$key][$k]);
-                echo '<pre>';
-                var_dump($query[$key][$k]);exit;
+
                 $result[$key][$k]['distance'] = !empty($query[$key][$k]['route']['distance']) ?  $query[$key][$k]['route']['distance'] : 100000;
 
                 $result[$key][$k]['duration'] = 0;
-                if(!empty($query[$key][$k]['route']['duration'])) {
-                    foreach ($query[$key][$k]['route']['duration'] as $ke => $va) {
-                        $result[$key][$k]['duration'] += $va['duration'];
-                    }
+                if(!empty($query[$key][$k]['route']['transits'])) {
+                    $query[$key][$k]['route']['transits'] = $sort->arraySort($query[$key][$k]['route']['transits'], 'duration', 'asc');
+                    $result[$key][$k]['duration'] = $query[$key][$k]['route']['transits'][0]['duration'];
                 } else {
                     $result[$key][$k]['duration'] = 100000;
                 }
-
 
             }
         }

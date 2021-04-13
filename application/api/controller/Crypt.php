@@ -23,7 +23,7 @@ class Crypt extends Controller
         $data = [
             'version' => 'v1.0.0',
             'api_url' => 'search_addr/searchPointAddr',
-            'token' => '379c707f7f2a53db6b889df3f752c188',
+            'token' => '0f31e2ab9afed07e77365d2fbecd3128',
             'user_lat' => '36.656932',
             'user_lng' => '117.120311',
             'user_addr_name' => '测试地址',
