@@ -6,7 +6,7 @@ use elliot\HttpRequest;
 
 class Request
 {
-    private $url = 'https://apis.map.qq.com/';
+    private $url = 'https://apis.map.qq.com';
     private $key = 'YRVBZ-MUWLD-RZ44T-H7NBA-7NNHJ-S5F62';
 
 
@@ -16,7 +16,7 @@ class Request
 
     public function centerSearch($data)
     {
-        return $this->request($data, 'ws/place/v1/search', 'EXVBZ-VO6K5-UULIZ-QEHW3-NYPA3-5HBDN');
+        return $this->request($data, '/ws/place/v1/search', 'EXVBZ-VO6K5-UULIZ-QEHW3-NYPA3-5HBDN');
     }
 
     /**
@@ -24,7 +24,7 @@ class Request
      */
     public function parameters($data)
     {
-        return $this->request($data, 'ws/distance/v1/matrix?parameters', 'EXVBZ-VO6K5-UULIZ-QEHW3-NYPA3-5HBDN');
+        return $this->request($data, '/ws/distance/v1/matrix', 'H7PBZ-IITCX-2HF46-TGM3B-OW2Z2-FPF2X');
     }
     /**
      * User: This
@@ -37,8 +37,8 @@ class Request
 
         //调用接口所需数据
         $push_data = $data;
-        $push_data['key'] = $this->key;
-//        $push_data['key'] = $key;
+//        $push_data['key'] = $this->key;
+        $push_data['key'] = $key;
 
         $url = $this->url . $url_path;
         //识别请求地址为http还是https

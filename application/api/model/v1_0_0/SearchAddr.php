@@ -14,8 +14,8 @@ use think\Model,
     think\Db,
     elliot\LngLat,
     elliot\Sort,
-    gd\Request,
-//    tx\Request,
+    gd\Request as GdRequest,
+    tx\Request as TxRequest,
     app\api\model\v1_0_0\Place;
 
 class SearchAddr extends Model
@@ -31,6 +31,195 @@ class SearchAddr extends Model
 
         $time = date('Y-m-d H:i:s', time());
 
+        $result = $this->gdSearchPointAddr($post, $time);
+
+//        $result = $this->txSearchPointAddr($post, $time);
+        return $result;
+
+    }
+
+    /**
+     * User: this
+     * Date: 2021/4/13
+     * Time: 15:22
+     * 腾讯商圈检索列表
+     */
+    public function txSearchPointAddr($post, $time)
+    {
+        //组合获取中心点数组
+        $lng_lat = [];
+
+        //组合用户位置数据
+        $user_sadr_data = [];
+
+        //组合场所数组
+        $place_save_data = [];
+
+        //定义场所数组
+        $place_info = [];
+
+        //检测是否传入商圈交通工具
+        if(empty($post['post_data']['mode'])) {
+            $post['post_data']['mode'] = 'driving';
+        }
+
+        //定义测距查询数据
+        $pts_data['mode'] = $post['post_data']['mode'];
+        $pts_data['from'][0] = $post['post_data']['user_lat'] . ',' . $post['post_data']['user_lng'];
+        $pts_data['to'] = [];
+
+        //定义返回数组
+        $result = [];
+        $result['uf_distance'] = 0;
+        $result['list'] = [];
+
+        $user_sadr_data[0]['app_user_id'] = $post['user_info']['app_user_id'];
+        $user_sadr_data[0]['lng'] = $post['post_data']['user_lng'];
+        $user_sadr_data[0]['lat'] = $post['post_data']['user_lat'];
+        $user_sadr_data[0]['addr_name'] = $post['post_data']['user_addr_name'];
+        $user_sadr_data[0]['type'] = 1;
+        $user_sadr_data[0]['created_at'] = $time;
+
+        foreach ($post['post_data']['list'] as $key => $value) {
+            //组合获取中心点数据
+            $lng_lat[$key][0] = $value['search_lat'];
+            $lng_lat[$key][1] = $value['search_lng'];
+
+            $pts_data['from'][$key + 1] = $value['search_lat'] . ',' . $value['search_lng'];
+
+            //组合朋友地址数据
+            $user_sadr_data[$key +1]['app_user_id'] = $post['user_info']['app_user_id'];
+            $user_sadr_data[$key +1]['lng'] = $value['search_lng'];
+            $user_sadr_data[$key +1]['lat'] = $value['search_lat'];
+            $user_sadr_data[$key +1]['addr_name'] = $value['addr_name'];
+            $user_sadr_data[$key +1]['type'] = 2;
+            $user_sadr_data[$key +1]['created_at'] = $time;
+
+            //计算用户距离朋友的距离
+            $result['uf_distance'] += LngLat::get_two_point_distance(
+                $post['post_data']['user_lat'],
+                $value['search_lat'],
+                $post['post_data']['user_lng'],
+                $value['search_lng']
+            );
+        };
+
+        //将用户检索地址存储
+        Db::name('user_sadr')->insertAll($user_sadr_data);
+
+        //组合获取中心点数据
+        $lng_lat_count = count($lng_lat);
+        $lng_lat[$lng_lat_count + 1][0] = $post['post_data']['user_lat'];
+        $lng_lat[$lng_lat_count + 1][1] = $post['post_data']['user_lng'];
+
+        //获取中心点坐标
+        $lng_lat_result = LngLat::GetCenterFromDegrees($lng_lat);
+
+
+        //检测是否传入商圈范围
+        if(empty($post['post_data']['search_rang'])) {
+            $post['post_data']['search_rang'] = 30000;
+        }
+
+        //实例化Request
+        $request = new TxRequest();
+
+        //获取中心点周边列表
+        $center_data['keyword'] = urlencode('购物');
+        $boundary = "{$lng_lat_result['lat']},{$lng_lat_result['lng']},{$post['post_data']['search_rang']}";
+        $center_data['boundary'] = "nearby($boundary)";
+        $center_data['filter'] = "category=" . urlencode('购物中心');
+        $center_data['orderby'] = "_distance";
+        $center_data['page_size'] = 20;
+        $center_result = $request->centerSearch($center_data);
+
+        //检测是否查询到商圈列表
+        if(empty($center_result['data'])) {
+            return $result;
+        }
+
+
+        $result['list'] = $center_result['data'];
+
+        //组合测距请求数据及反悔数据
+        foreach ($result['list'] as $key => $value) {
+            $pts_data['to'][$key] = $value['location']['lat'] . ',' . $value['location']['lng'];
+            $result['list'][$key]['count_distance'] = 0;
+            $result['list'][$key]['count_duration'] = 0;
+            $result['list'][$key]['dd_info'] = '';
+            unset($result[$key]['type'], $result[$key]['_distance']);
+        }
+
+        $pts_data['from'] = implode(';', $pts_data['from']);
+        $pts_data['to'] = implode(';', $pts_data['to']);
+
+        $pts_result = $request->parameters($pts_data);
+
+        if(empty($pts_result)) {
+            return $result;
+        }
+
+        //实例化Place
+        $place = new Place();
+
+        //组合场所数组、当前查询数据总计距离和用时、分别距离及用时
+        foreach ($result['list'] as $key => $value) {
+            //检测当前地点是否已村子啊
+            $place_info[$key] = $place->getPlaceInfo($value['id']);
+            if(!$place_info[$key]) {
+                //组合场所数据
+                $place_save_data[$key]['id'] = $value['id'];
+                $place_save_data[$key]['lng'] = $value['location']['lng'];
+                $place_save_data[$key]['lat'] = $value['location']['lat'];
+                $place_save_data[$key]['name'] = $value['title'];
+                $place_save_data[$key]['address'] = $value['address'];
+                $place_save_data[$key]['tel'] = $value['tel'];
+                $place_save_data[$key]['province'] = $value['ad_info']['province'];
+                $place_save_data[$key]['city'] = $value['ad_info']['city'];
+                $place_save_data[$key]['district'] = $value['ad_info']['district'];
+                $place_save_data[$key]['adcode'] = $value['ad_info']['adcode'];
+                $place_save_data[$key]['created_at'] = $time;
+            }
+
+            $result['list'][$key]['dd_info'] = '';
+
+            foreach ($pts_result['result']['rows'] as $ke => $va) {
+                if($ke == 0) {
+                    $result['list'][$key]['dd_info'] = '距离你 ' . $this->checkKm($va['elements'][$key]['distance']) . ',约 ' . $this->checkTime($va['elements'][$key]['duration']);
+                } else {
+                    $result['list'][$key]['dd_info'] .= ';距离你朋友 ' . $this->checkKm($va['elements'][$key]['distance']) . ',约 ' . $this->checkTime($va['elements'][$key]['duration']);
+                }
+                $result['list'][$key]['count_distance'] += $va['elements'][$key]['distance'];
+                $result['list'][$key]['count_duration'] += $va['elements'][$key]['duration'];
+            }
+        }
+
+        if($place_save_data) {
+            $place_save_data = array_values($place_save_data);
+            //数据存储
+            Db::name('place')->insertAll($place_save_data);
+        }
+
+        //实例化Sort
+        $sort = new Sort();
+
+        if(empty($post['post_data']['order_type'])) {
+            $post['post_data']['order_type'] = 'count_duration';
+        }
+
+        //排序
+        $result['list'] = $sort->arraySort($result['list'], $post['post_data']['order_type'], 'asc');
+
+        return $result;
+    }
+    /**
+     * User: this
+     * Date: 2021/4/13
+     * Time: 15:18
+     * 高德商圈检索列表
+     */
+    public function gdSearchPointAddr($post, $time)
+    {
         //组合获取中心点数组
         $lng_lat = [];
 
@@ -49,7 +238,6 @@ class SearchAddr extends Model
         $post['driving']['destination'] = [];
         $post['driving']['type'] = 1;
         $post['driving']['destination'][0] = $post['post_data']['user_lng'] . ',' . $post['post_data']['user_lat'];
-
 
         //定义步行测距查询数据
         $post['walking'] = [];
@@ -89,6 +277,8 @@ class SearchAddr extends Model
             $lng_lat[$key][0] = $value['search_lat'];
             $lng_lat[$key][1] = $value['search_lng'];
 
+            $post['tx_form'][$key + 1] = $value['search_lat'] . ',' . $value['search_lng'];
+
             //组合出行数据目的地数据
             $post['driving']['destination'][$key + 1] = $value['search_lng'] . ',' . $value['search_lat'];
             $post['walking']['destination'][$key + 1] = $value['search_lng'] . ',' . $value['search_lat'];
@@ -109,7 +299,7 @@ class SearchAddr extends Model
                 $value['search_lat'],
                 $post['post_data']['user_lng'],
                 $value['search_lng']
-                );
+            );
         };
 
         //将用户检索地址存储
@@ -130,15 +320,7 @@ class SearchAddr extends Model
         }
 
         //实例化Request
-        $request = new Request();
-
-        //获取中心点周边列表
-//        $center_data['keyword'] = urlencode('购物');
-//        $boundary = "{$lng_lat_result['lat']},{$lng_lat_result['lng']},{$post['post_data']['search_rang']}";
-//        $center_data['boundary'] = "nearby($boundary)";
-//        $center_data['filter'] = "category=" . urlencode('购物中心');
-//        $center_data['orderby'] = "_distance";
-
+        $request = new GdRequest();
         $center_data['location'] = "{$lng_lat_result['lng']},{$lng_lat_result['lat']}";
         $center_data['keywords'] = '购物广场';
         $center_data['types'] = '060101';
@@ -257,14 +439,12 @@ class SearchAddr extends Model
         if(empty($post['post_data']['order_type'])) {
             $post['post_data']['order_type'] = 'count_duration';
         }
-        
+
         //排序
         $result['list'] = $sort->arraySort($result['list'], $post['post_data']['order_type'], 'asc');
 
         return $result;
-
     }
-
     /**
      * User: this
      * Date: 2021/3/30
