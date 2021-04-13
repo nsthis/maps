@@ -64,31 +64,31 @@ class AppUser extends Model
             //连接redis
             $redis = new Redis($config['redis']['user_login']);
 
-            //获取当前用户所有未作废token
-            $user_token = Db::name('login_log')
-                ->field('id, token')
-                ->where([
-                    ['app_user_id', '=', $user_info['id']],
-                    ['is_delete', '=', 1]
-                ])
-                ->select();
-            if($user_token) {
-                //redis删除
-                foreach ($user_token as $key => $value) {
-                    $redis->rm($value['token']);
-                }
-
-                $token_id = array_column($user_token, 'id');
-
-                //token失效
-                $token_result = Db::name('login_log')
-                    ->where([
-                        ['id', 'in', $token_id]
-                    ])
-                    ->update([
-                        'is_delete' => 2
-                    ]);
-            }
+//            //获取当前用户所有未作废token
+//            $user_token = Db::name('login_log')
+//                ->field('id, token')
+//                ->where([
+//                    ['app_user_id', '=', $user_info['id']],
+//                    ['is_delete', '=', 1]
+//                ])
+//                ->select();
+//            if($user_token) {
+//                //redis删除
+//                foreach ($user_token as $key => $value) {
+//                    $redis->rm($value['token']);
+//                }
+//
+//                $token_id = array_column($user_token, 'id');
+//
+//                //token失效
+//                $token_result = Db::name('login_log')
+//                    ->where([
+//                        ['id', 'in', $token_id]
+//                    ])
+//                    ->update([
+//                        'is_delete' => 2
+//                    ]);
+//            }
 
             //获取token
             $token = md5(md5($time . mt_rand(00000, 99999) . $user_info['id']));

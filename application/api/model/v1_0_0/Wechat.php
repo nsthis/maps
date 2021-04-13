@@ -34,6 +34,8 @@ class Wechat
 
         $content = json_decode($content, true);
 
+        writeLogs('wechat', 'open_id获取内容: ', $content);
+
         if (!$content) {
             jsonCrypt(102);
         }
@@ -47,6 +49,15 @@ class Wechat
         if(!isset($content['openid']) || !$content['openid']) {
             jsonCrypt(300);
         }
+
+//        //获取用户昵称、头像
+//        $info_url = "https://api.weixin.qq.com/sns/userinfo?access_token={$content['session_key']}&openid={$content['openid']}&lang=zh_CN";
+//
+//        $info_result = file_get_contents($info_url);
+//
+//        $info_result = json_decode($info_result, true);
+//
+//        writeLogs('wechat', '昵称、头像获取内容: ', $info_result);
 
         $result['openid'] = $content['openid'];
         $result['session_key'] = $content['session_key'];
