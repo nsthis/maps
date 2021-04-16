@@ -21,7 +21,7 @@ class AppUser extends Model
      * Time: 14:42
      * 登陆
      */
-    public function login($post)
+    public function xcxLogin($post)
     {
         $time = date('Y-m-d H:i:s', time());
 
@@ -44,6 +44,7 @@ class AppUser extends Model
                 $save_data['mobile'] = !empty($post['post_data']['mobile']) ? $post['post_data']['mobile'] : NULL;
                 $save_data['nick_name'] = !empty($post['post_data']['nick_name']) ? $post['post_data']['nick_name'] : NULL;
                 $save_data['avatr'] = !empty($post['post_data']['avatr']) ? $post['post_data']['avatr'] : NULL;
+                $save_data['avatr'] = !empty($post['post_data']['unionid']) ? $post['post_data']['unionid'] : NULL;
                 $save_data['app_crypt_id'] = $post['app_crypt']['app_crypt_id'];
                 $save_data['created_at'] = $time;
 

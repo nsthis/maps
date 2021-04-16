@@ -20,13 +20,14 @@ class AppUser extends ApiCommon
      * User: this
      * Date: 2021/3/11
      * Time: 14:38
-     * 登陆
+     * 小程序登陆
      */
-    public function login($post)
+    public function xcxLogin($post)
     {
         //基础验证
         $validate = new Validate([
             'open_id' => 'require',
+            'unionid' => 'require',
 //            'nick_name' => 'require',
 //            'avatr' => 'require'
 //            'lng' => 'require|float',
@@ -36,6 +37,7 @@ class AppUser extends ApiCommon
         //错误信息
         $validate->message([
             'open_id.require' => 'open_id 不能为空',
+            'unionid.require' => 'unionid 不能为空',
 //            'nick_name.require' => '昵称 不能为空',
 //            'avatr.require' => '头像 不能为空',
 //            'lng.require' => '经度 不能为空',
@@ -53,7 +55,7 @@ class AppUser extends ApiCommon
         $model = new AppUsertModel();
 
         //调用model
-        $result = $model->login($post);
+        $result = $model->xcxLogin($post);
 
         //返回数据
         jsonCrypt(200, $result, $post['app_crypt']['app_crypt']);

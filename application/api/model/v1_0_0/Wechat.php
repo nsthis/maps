@@ -10,7 +10,8 @@
 
 namespace app\api\model\v1_0_0;
 
-use wechat\WxBizDataCrypt;
+use wechat\WxBizDataCrypt,
+    think\cache\driver\Redis;
 
 class Wechat
 {
@@ -60,6 +61,7 @@ class Wechat
 //        writeLogs('wechat', '昵称、头像获取内容: ', $info_result);
 
         $result['openid'] = $content['openid'];
+        $result['unionid'] = $content['unionid'];
         $result['session_key'] = $content['session_key'];
 
 

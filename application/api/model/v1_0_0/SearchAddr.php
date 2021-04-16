@@ -28,10 +28,18 @@ class SearchAddr extends Model
      */
     public function searchPointAddr($post)
     {
-
         $time = date('Y-m-d H:i:s', time());
 
-        $result = $this->gdSearchPointAddr($post, $time);
+        switch ($post['post_data']['mode'])
+        {
+            case 'driving':
+                $result = $this->txSearchPointAddr($post, $time);
+                break;
+            default:
+                $result = $this->gdSearchPointAddr($post, $time);
+                break;
+        }
+//        $result = $this->gdSearchPointAddr($post, $time);
 
 //        $result = $this->txSearchPointAddr($post, $time);
         return $result;
@@ -146,7 +154,7 @@ class SearchAddr extends Model
             $pts_data['to'][$key] = $value['location']['lat'] . ',' . $value['location']['lng'];
             $result['list'][$key]['count_distance'] = 0;
             $result['list'][$key]['count_duration'] = 0;
-            $result['list'][$key]['dd_info'] = '';
+            $result['list'][$key]['dd_info'] = [];
             unset($result[$key]['type'], $result[$key]['_distance']);
         }
 
@@ -181,13 +189,14 @@ class SearchAddr extends Model
                 $place_save_data[$key]['created_at'] = $time;
             }
 
-            $result['list'][$key]['dd_info'] = '';
+            $result['list'][$key]['dd_info']['u_info'] = '';
+            $result['list'][$key]['dd_info']['d_info'] = '';
 
             foreach ($pts_result['result']['rows'] as $ke => $va) {
                 if($ke == 0) {
-                    $result['list'][$key]['dd_info'] = '距离你 ' . $this->checkKm($va['elements'][$key]['distance']) . ',约 ' . $this->checkTime($va['elements'][$key]['duration']);
+                    $result['list'][$key]['dd_info']['u_info'] = '距离你 ' . $this->checkKm($va['elements'][$key]['distance']) . ',约 ' . $this->checkTime($va['elements'][$key]['duration']);
                 } else {
-                    $result['list'][$key]['dd_info'] .= ';距离你朋友 ' . $this->checkKm($va['elements'][$key]['distance']) . ',约 ' . $this->checkTime($va['elements'][$key]['duration']);
+                    $result['list'][$key]['dd_info']['f_info'] = ';距离你朋友 ' . $this->checkKm($va['elements'][$key]['distance']) . ',约 ' . $this->checkTime($va['elements'][$key]['duration']);
                 }
                 $result['list'][$key]['count_distance'] += $va['elements'][$key]['distance'];
                 $result['list'][$key]['count_duration'] += $va['elements'][$key]['duration'];
@@ -359,7 +368,7 @@ class SearchAddr extends Model
             $result['list'][$key]['location']['lat'] = $value['location'][1];
             $result['list'][$key]['count_distance'] = 0;
             $result['list'][$key]['count_duration'] = 0;
-            $result['list'][$key]['dd_info'] = '';
+            $result['list'][$key]['dd_info'] = [];
         }
 
         $post['driving']['origins'] = trim($post['driving']['origins'], '|');
@@ -414,13 +423,14 @@ class SearchAddr extends Model
                 $place_save_data[$key]['created_at'] = $time;
             }
 
-            $result['list'][$key]['dd_info'] = '';
+            $result['list'][$key]['dd_info']['u_info'] = '';
+            $result['list'][$key]['dd_info']['d_info'] = '';
 
             foreach ($pts_result as $ke => $va) {
                 if($ke == 0) {
-                    $result['list'][$key]['dd_info'] = '距离你 ' . $this->checkKm($va[$key]['distance']) . ',约 ' . $this->checkTime($va[$key]['duration']);
+                    $result['list'][$key]['dd_info']['u_info'] = '距离你 ' . $this->checkKm($va[$key]['distance']) . ',约 ' . $this->checkTime($va[$key]['duration']);
                 } else {
-                    $result['list'][$key]['dd_info'] .= ';距离你朋友 ' . $this->checkKm($va[$key]['distance']) . ',约 ' . $this->checkTime($va[$key]['duration']);
+                    $result['list'][$key]['dd_info']['f_info'] = '距离你朋友 ' . $this->checkKm($va[$key]['distance']) . ',约 ' . $this->checkTime($va[$key]['duration']);
                 }
                 $result['list'][$key]['count_distance'] += $va[$key]['distance'];
                 $result['list'][$key]['count_duration'] += $va[$key]['duration'];
