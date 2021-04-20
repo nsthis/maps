@@ -45,7 +45,7 @@ class AppUser extends Model
                 $save_data['nick_name'] = !empty($post['post_data']['nick_name']) ? $post['post_data']['nick_name'] : NULL;
                 $save_data['avatr'] = !empty($post['post_data']['avatr']) ? $post['post_data']['avatr'] : NULL;
                 $save_data['unionid'] = !empty($post['post_data']['unionid']) ? $post['post_data']['unionid'] : NULL;
-                $save_data['channel'] = !empty($post['post_data']['channel']) ? $post['post_data']['channel'] : 1;
+                $save_data['channel_id'] = !empty($post['post_data']['channel_id']) ? $post['post_data']['channel_id'] : 1;
                 $save_data['app_crypt_id'] = $post['app_crypt']['app_crypt_id'];
                 $save_data['created_at'] = $time;
 
