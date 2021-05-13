@@ -415,7 +415,7 @@ class SearchAddr extends Model
                 $place_save_data[$key]['lng'] = $value['location']['lng'];
                 $place_save_data[$key]['lat'] = $value['location']['lat'];
                 $place_save_data[$key]['name'] = $value['title'];
-                $place_save_data[$key]['address'] = $value['address'];
+                $place_save_data[$key]['address'] = !empty($value['address']) ? $value['address'] : NULL;
                 $place_save_data[$key]['tel'] = $value['tel'];
                 $place_save_data[$key]['province'] = $value['ad_info']['province'];
                 $place_save_data[$key]['city'] = $value['ad_info']['city'];

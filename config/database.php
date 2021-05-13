@@ -15,11 +15,11 @@ return [
     // 服务器地址
     'hostname'        => '47.94.154.10',
     // 数据库名
-    'database'        => 'maps',
+    'database'        => 'maps_dev',
     // 用户名
-    'username'        => 'maps',
+    'username'        => 'maps_dev',
     // 密码
-    'password'        => 'maps1304!#)$',
+    'password'        => 'maps1304!#)$dev',
     // 端口
     'hostport'        => '3306',
     // 连接dsn
