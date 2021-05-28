@@ -35,6 +35,7 @@ class AppUser extends Model
                 ->where([
                     ['open_id', '=', $post['post_data']['open_id']]
                 ])
+                ->lock(true)
                 ->find();
 
             //若没有注册则新增
